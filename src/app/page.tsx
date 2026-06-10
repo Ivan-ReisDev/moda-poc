@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useRef, ChangeEvent } from "react";
+import { PRESET_MEASUREMENTS, type ClothingMeasurements, type ClothingSize } from "@/lib/types";
 
-interface Measurements {
+interface PersonMeasurements {
   height: string;
   weight: string;
-  size: string;
   bust: string;
   waist: string;
   hips: string;
@@ -16,41 +16,51 @@ const ASPECT_RATIOS = [
   { value: "9:16", label: "9:16 (Story/Reels)" },
   { value: "1:1", label: "1:1 (Quadrado)" },
   { value: "4:5", label: "4:5 (Instagram)" },
-  { value: "2:3", label: "2:3 (Retrato)" },
-  { value: "16:9", label: "16:9 (Paisagem)" },
 ];
 
 const RESOLUTIONS = [
   { value: "512", label: "512 (Rápido)" },
   { value: "1K", label: "1K (Padrão)" },
   { value: "2K", label: "2K (Alta)" },
-  { value: "4K", label: "4K (Ultra)" },
 ];
 
 export default function Home() {
+  // Imagens
   const [clothingImage, setClothingImage] = useState<File | null>(null);
   const [clothingPreview, setClothingPreview] = useState<string | null>(null);
   const [bodyImage, setBodyImage] = useState<File | null>(null);
   const [bodyPreview, setBodyPreview] = useState<string | null>(null);
-  const [measurements, setMeasurements] = useState<Measurements>({
-    height: "",
-    weight: "",
-    size: "",
-    bust: "",
-    waist: "",
-    hips: "",
+
+  // Medidas da pessoa
+  const [personMeasurements, setPersonMeasurements] = useState<PersonMeasurements>({
+    ...PRESET_MEASUREMENTS.person,
   });
+
+  // Medidas da roupa
+  const [clothingSize, setClothingSize] = useState<ClothingSize>("M");
+  const [clothingMeasurements, setClothingMeasurements] =
+    useState<ClothingMeasurements>(PRESET_MEASUREMENTS.clothing.M);
+
+  // Config
   const [prompt, setPrompt] = useState("");
+  const [apiKey, setApiKey] = useState("");
   const [aspectRatio, setAspectRatio] = useState("3:4");
   const [resolution, setResolution] = useState("1K");
-  const [resultImage, setResultImage] = useState<string | null>(null);
+
+  // Resultado
+  const [recommendation, setRecommendation] = useState<string | null>(null);
+  const [recommendedSize, setRecommendedSize] = useState<string | null>(null);
+  const [recommendedImage, setRecommendedImage] = useState<string | null>(null);
+  const [looseImage, setLooseImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const clothingInputRef = useRef<HTMLInputElement>(null);
   const bodyInputRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
+  // Handlers
   const handleClothingUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -67,30 +77,55 @@ export default function Home() {
     }
   };
 
-  const handleMeasurementChange = (field: keyof Measurements, value: string) => {
-    setMeasurements((prev) => ({ ...prev, [field]: value }));
+  const handlePersonMeasurement = (field: keyof PersonMeasurements, value: string) => {
+    setPersonMeasurements((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleClothingSizeChange = (size: ClothingSize) => {
+    setClothingSize(size);
+    setClothingMeasurements(PRESET_MEASUREMENTS.clothing[size]);
+  };
+
+  const handleClothingMeasurement = (
+    field: keyof ClothingMeasurements,
+    value: string
+  ) => {
+    setClothingMeasurements((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async () => {
-    if (!clothingImage || !bodyImage) {
-      setError("Envie a imagem da roupa e a foto do corpo");
+    if (!clothingImage || !bodyImage || !apiKey) {
+      setError("Preencha todos os campos obrigatórios (imagens e API Key)");
       return;
     }
 
     setLoading(true);
     setError(null);
-    setResultImage(null);
+    setRecommendation(null);
+    setRecommendedImage(null);
+    setLooseImage(null);
+    setRecommendedSize(null);
 
     try {
+      setLoadingStep("Analisando medidas e gerando recomendação...");
+
       const formData = new FormData();
       formData.append("clothingImage", clothingImage);
       formData.append("bodyImage", bodyImage);
+      formData.append("apiKey", apiKey);
       formData.append("prompt", prompt);
       formData.append("aspectRatio", aspectRatio);
       formData.append("resolution", resolution);
 
-      Object.entries(measurements).forEach(([key, value]) => {
-        if (value) formData.append(key, value);
+      // Medidas da pessoa
+      Object.entries(personMeasurements).forEach(([key, value]) => {
+        if (value) formData.append(`person${capitalize(key)}`, value);
+      });
+
+      // Medidas da roupa
+      formData.append("clothingSize", clothingSize);
+      Object.entries(clothingMeasurements).forEach(([key, value]) => {
+        if (value) formData.append(`clothing${capitalize(key)}`, value);
       });
 
       const response = await fetch("/api/generate", {
@@ -103,29 +138,33 @@ export default function Home() {
         throw new Error(errorData.error || `Erro ${response.status}`);
       }
 
-      const blob = await response.blob();
-      const imageUrl = URL.createObjectURL(blob);
-      setResultImage(imageUrl);
+      setLoadingStep("Gerando imagens...");
+
+      const data = await response.json();
+
+      setRecommendation(data.recommendation);
+      setRecommendedSize(data.recommendedSize);
+      setRecommendedImage(`data:${data.mimeType};base64,${data.recommendedImage}`);
+      setLooseImage(`data:${data.mimeType};base64,${data.looseImage}`);
 
       setTimeout(() => {
         resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 100);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao gerar imagem");
+      setError(err instanceof Error ? err.message : "Erro ao gerar");
     } finally {
       setLoading(false);
+      setLoadingStep("");
     }
   };
 
-  const handleDownload = () => {
-    if (!resultImage) return;
+  const handleDownload = (imageSrc: string, filename: string) => {
+    if (!imageSrc) return;
     const a = document.createElement("a");
-    a.href = resultImage;
-    a.download = `moda-resultado-${Date.now()}.png`;
+    a.href = imageSrc;
+    a.download = filename;
     a.click();
   };
-
-  const canGenerate = clothingImage && bodyImage && !loading;
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 text-white">
@@ -138,28 +177,41 @@ export default function Home() {
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-bold">Moda POC</h1>
-              <p className="text-[10px] sm:text-xs text-zinc-500">Gemini 3.1 Flash Image</p>
+              <p className="text-[10px] sm:text-xs text-zinc-500">
+                Recomendação + Try-on com Gemini
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full bg-violet-500/10 text-violet-400 text-xs font-medium border border-violet-500/20">
-              POC
-            </span>
-          </div>
+          <span className="px-3 py-1 rounded-full bg-violet-500/10 text-violet-400 text-xs font-medium border border-violet-500/20">
+            POC
+          </span>
         </div>
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-          {/* Coluna Esquerda — Inputs */}
+          {/* ── Coluna Esquerda: Inputs ── */}
           <div className="space-y-5">
+            {/* API Key */}
+            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
+              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+                🔑 API Key
+              </h2>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Cole sua Gemini API Key"
+                className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-3 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 transition-all"
+              />
+            </section>
+
             {/* Upload de Imagens */}
             <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">
+              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
                 📸 Imagens
               </h2>
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                {/* Roupa */}
                 <div>
                   <label className="text-xs text-zinc-500 mb-2 block">
                     Imagem da Roupa *
@@ -195,8 +247,6 @@ export default function Home() {
                     )}
                   </button>
                 </div>
-
-                {/* Corpo */}
                 <div>
                   <label className="text-xs text-zinc-500 mb-2 block">
                     Foto do Corpo *
@@ -235,31 +285,76 @@ export default function Home() {
               </div>
             </section>
 
-            {/* Medidas */}
+            {/* Medidas da Pessoa */}
             <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">
-                📏 Medidas
+              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+                🧍 Medidas da Pessoa
               </h2>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { key: "height" as const, label: "Altura", placeholder: "Ex: 1,70m" },
-                  { key: "weight" as const, label: "Peso", placeholder: "Ex: 65kg" },
-                  { key: "size" as const, label: "Tamanho", placeholder: "Ex: M" },
-                  { key: "bust" as const, label: "Busto", placeholder: "Ex: 92cm" },
-                  { key: "waist" as const, label: "Cintura", placeholder: "Ex: 70cm" },
-                  { key: "hips" as const, label: "Quadril", placeholder: "Ex: 98cm" },
-                ].map(({ key, label, placeholder }) => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {(
+                  [
+                    { key: "height", label: "Altura", ph: "1,70m" },
+                    { key: "weight", label: "Peso", ph: "65kg" },
+                    { key: "bust", label: "Busto", ph: "92cm" },
+                    { key: "waist", label: "Cintura", ph: "70cm" },
+                    { key: "hips", label: "Quadril", ph: "98cm" },
+                  ] as const
+                ).map(({ key, label, ph }) => (
                   <div key={key}>
-                    <label className="text-xs text-zinc-500 mb-1 block">
-                      {label}
-                    </label>
+                    <label className="text-xs text-zinc-500 mb-1 block">{label}</label>
                     <input
                       type="text"
-                      value={measurements[key]}
-                      onChange={(e) =>
-                        handleMeasurementChange(key, e.target.value)
-                      }
-                      placeholder={placeholder}
+                      value={personMeasurements[key]}
+                      onChange={(e) => handlePersonMeasurement(key, e.target.value)}
+                      placeholder={ph}
+                      className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-3 py-2 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 transition-all"
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Medidas da Roupa */}
+            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
+              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+                👕 Medidas da Roupa
+              </h2>
+
+              {/* Seletor de tamanho */}
+              <div className="flex gap-2 mb-4">
+                {(["M", "G"] as ClothingSize[]).map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => handleClothingSizeChange(size)}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                      clothingSize === size
+                        ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/25"
+                        : "bg-zinc-800/50 text-zinc-400 border border-zinc-700 hover:border-zinc-600"
+                    }`}
+                  >
+                    Tamanho {size}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {(
+                  [
+                    { key: "bust", label: "Busto" },
+                    { key: "waist", label: "Cintura" },
+                    { key: "hips", label: "Quadril" },
+                    { key: "length", label: "Comprimento" },
+                    { key: "sleeve", label: "Manga" },
+                    { key: "shoulder", label: "Ombro" },
+                  ] as const
+                ).map(({ key, label }) => (
+                  <div key={key}>
+                    <label className="text-xs text-zinc-500 mb-1 block">{label}</label>
+                    <input
+                      type="text"
+                      value={clothingMeasurements[key] || ""}
+                      onChange={(e) => handleClothingMeasurement(key, e.target.value)}
+                      placeholder="cm"
                       className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-3 py-2 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 transition-all"
                     />
                   </div>
@@ -269,39 +364,31 @@ export default function Home() {
 
             {/* Configurações */}
             <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">
+              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
                 ⚙️ Configurações
               </h2>
-              <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-zinc-500 mb-1 block">
-                    Aspect Ratio
-                  </label>
+                  <label className="text-xs text-zinc-500 mb-1 block">Aspect Ratio</label>
                   <select
                     value={aspectRatio}
                     onChange={(e) => setAspectRatio(e.target.value)}
                     className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500 transition-all"
                   >
                     {ASPECT_RATIOS.map((ar) => (
-                      <option key={ar.value} value={ar.value}>
-                        {ar.label}
-                      </option>
+                      <option key={ar.value} value={ar.value}>{ar.label}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-zinc-500 mb-1 block">
-                    Resolução
-                  </label>
+                  <label className="text-xs text-zinc-500 mb-1 block">Resolução</label>
                   <select
                     value={resolution}
                     onChange={(e) => setResolution(e.target.value)}
                     className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500 transition-all"
                   >
                     {RESOLUTIONS.map((res) => (
-                      <option key={res.value} value={res.value}>
-                        {res.label}
-                      </option>
+                      <option key={res.value} value={res.value}>{res.label}</option>
                     ))}
                   </select>
                 </div>
@@ -310,24 +397,24 @@ export default function Home() {
 
             {/* Prompt */}
             <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">
+              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
                 ✏️ Prompt (opcional)
               </h2>
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Descreva como quer que a roupa apareça. Ex: 'Vista esta roupa na pessoa, ajustando ao corpo de forma natural, iluminação de estúdio, fundo branco neutro'"
-                rows={3}
+                placeholder="Descreva como quer que a roupa apareça..."
+                rows={2}
                 className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-3 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 transition-all resize-none"
               />
             </section>
 
-            {/* Botão Gerar */}
+            {/* Botão */}
             <button
               onClick={handleSubmit}
-              disabled={!canGenerate}
+              disabled={loading || !clothingImage || !bodyImage || !apiKey}
               className={`w-full py-4 rounded-xl font-semibold text-sm transition-all ${
-                !canGenerate
+                loading || !clothingImage || !bodyImage || !apiKey
                   ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
                   : "bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40"
               }`}
@@ -335,29 +422,16 @@ export default function Home() {
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                      fill="none"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Gerando imagem...
+                  {loadingStep || "Processando..."}
                 </span>
               ) : (
-                "✨ Gerar Imagem"
+                "✨ Analisar e Gerar"
               )}
             </button>
 
-            {/* Erro */}
             {error && (
               <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm">
                 ❌ {error}
@@ -365,49 +439,92 @@ export default function Home() {
             )}
           </div>
 
-          {/* Coluna Direita — Resultado */}
-          <div ref={resultRef} className="lg:sticky lg:top-24 lg:self-start scroll-mt-20">
+          {/* ── Coluna Direita: Resultado ── */}
+          <div ref={resultRef} className="lg:sticky lg:top-24 lg:self-start scroll-mt-20 space-y-5">
+            {/* Recomendação */}
             <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">
-                🖼️ Resultado
+              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+                💡 Recomendação
               </h2>
-
-              {resultImage ? (
-                <div className="space-y-4">
-                  <div className="rounded-xl overflow-hidden bg-zinc-800/50 border border-zinc-700">
-                    <img
-                      src={resultImage}
-                      alt="Resultado"
-                      className="w-full h-auto"
-                    />
+              {recommendation ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-lg bg-violet-500/20 text-violet-300 text-sm font-bold border border-violet-500/30">
+                      Tamanho {recommendedSize}
+                    </span>
                   </div>
-                  <button
-                    onClick={handleDownload}
-                    className="w-full py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-medium transition-all border border-zinc-700"
-                  >
-                    📥 Baixar Imagem
-                  </button>
+                  <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">
+                    {recommendation}
+                  </p>
                 </div>
               ) : (
-                <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-zinc-800 flex flex-col items-center justify-center gap-3 text-zinc-600">
-                  <span className="text-4xl sm:text-5xl">🖼️</span>
-                  <p className="text-sm text-center">
-                    A imagem gerada aparecerá aqui
-                  </p>
-                  <p className="text-xs text-zinc-700 text-center max-w-xs">
-                    Envie as imagens, preencha as medidas e clique em Gerar
-                  </p>
+                <div className="text-center py-6 text-zinc-600">
+                  <span className="text-3xl block mb-2">💡</span>
+                  <p className="text-sm">A recomendação aparecerá aqui</p>
+                </div>
+              )}
+            </section>
+
+            {/* Foto: Tamanho Recomendado */}
+            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
+                  ✅ Tamanho Recomendado ({recommendedSize || "—"})
+                </h2>
+                {recommendedImage && (
+                  <button
+                    onClick={() => handleDownload(recommendedImage, `recomendado-${recommendedSize}.png`)}
+                    className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                  >
+                    📥 Baixar
+                  </button>
+                )}
+              </div>
+              {recommendedImage ? (
+                <div className="rounded-xl overflow-hidden bg-zinc-800/50 border border-zinc-700">
+                  <img src={recommendedImage} alt="Tamanho recomendado" className="w-full h-auto" />
+                </div>
+              ) : (
+                <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-zinc-800 flex flex-col items-center justify-center gap-2 text-zinc-600">
+                  <span className="text-4xl">🖼️</span>
+                  <p className="text-xs">Foto no tamanho ideal</p>
+                </div>
+              )}
+            </section>
+
+            {/* Foto: Tamanho Folgado */}
+            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
+                  🔄 Tamanho Mais Folgado
+                </h2>
+                {looseImage && (
+                  <button
+                    onClick={() => handleDownload(looseImage, "folgado.png")}
+                    className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                  >
+                    📥 Baixar
+                  </button>
+                )}
+              </div>
+              {looseImage ? (
+                <div className="rounded-xl overflow-hidden bg-zinc-800/50 border border-zinc-700">
+                  <img src={looseImage} alt="Tamanho folgado" className="w-full h-auto" />
+                </div>
+              ) : (
+                <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-zinc-800 flex flex-col items-center justify-center gap-2 text-zinc-600">
+                  <span className="text-4xl">🖼️</span>
+                  <p className="text-xs">Foto num tamanho mais folgado</p>
                 </div>
               )}
             </section>
 
             {/* Info */}
-            <div className="mt-4 p-4 rounded-xl bg-zinc-900/30 border border-zinc-800/50">
-              <p className="text-xs text-zinc-600 leading-relaxed">
-                <strong className="text-zinc-500">Modelo:</strong> gemini-3.1-flash-image
-                (Nano Banana 2) • <strong className="text-zinc-500">Crop:</strong>{" "}
-                centralizado automático • <strong className="text-zinc-500">Idioma:</strong>{" "}
-                pt-BR
+            <div className="p-3 rounded-xl bg-zinc-900/30 border border-zinc-800/50">
+              <p className="text-[10px] sm:text-xs text-zinc-600 leading-relaxed">
+                <strong className="text-zinc-500">Modelo:</strong> gemini-2.5-flash-image (Nano Banana) •{" "}
+                <strong className="text-zinc-500">Crop:</strong> centralizado •{" "}
+                <strong className="text-zinc-500">Idioma:</strong> pt-BR
               </p>
             </div>
           </div>
@@ -415,4 +532,8 @@ export default function Home() {
       </div>
     </main>
   );
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateClothingImage } from "@/lib/gemini";
+import { generateRecommendation, applyCrop } from "@/lib/gemini";
 
-export const maxDuration = 60; // Gemini pode demorar
+export const maxDuration = 120; // 3 chamadas sequenciais ao Gemini
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,21 +9,31 @@ export async function POST(request: NextRequest) {
 
     const clothingImage = formData.get("clothingImage") as File | null;
     const bodyImage = formData.get("bodyImage") as File | null;
+    const apiKey = formData.get("apiKey") as string | null;
     const prompt = formData.get("prompt") as string | null;
     const aspectRatio = (formData.get("aspectRatio") as string) || "3:4";
     const resolution = (formData.get("resolution") as string) || "1K";
 
-    // Medidas
-    const measurements = {
-      height: (formData.get("height") as string) || undefined,
-      weight: (formData.get("weight") as string) || undefined,
-      size: (formData.get("size") as string) || undefined,
-      bust: (formData.get("bust") as string) || undefined,
-      waist: (formData.get("waist") as string) || undefined,
-      hips: (formData.get("hips") as string) || undefined,
+    // Medidas da pessoa
+    const personMeasurements = {
+      height: (formData.get("personHeight") as string) || undefined,
+      weight: (formData.get("personWeight") as string) || undefined,
+      bust: (formData.get("personBust") as string) || undefined,
+      waist: (formData.get("personWaist") as string) || undefined,
+      hips: (formData.get("personHips") as string) || undefined,
     };
 
-    // Validações
+    // Medidas da roupa
+    const clothingMeasurements = {
+      size: (formData.get("clothingSize") as string) || "M",
+      bust: (formData.get("clothingBust") as string) || undefined,
+      waist: (formData.get("clothingWaist") as string) || undefined,
+      hips: (formData.get("clothingHips") as string) || undefined,
+      length: (formData.get("clothingLength") as string) || undefined,
+      sleeve: (formData.get("clothingSleeve") as string) || undefined,
+      shoulder: (formData.get("clothingShoulder") as string) || undefined,
+    };
+
     if (!clothingImage || !bodyImage) {
       return NextResponse.json(
         { error: "Imagem da roupa e foto do corpo são obrigatórias" },
@@ -31,45 +41,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: "API Key do Gemini não configurada no servidor" },
-        { status: 500 }
+        { error: "API Key do Gemini é obrigatória" },
+        { status: 400 }
       );
     }
 
-    // Converter arquivos para base64
     const clothingBuffer = Buffer.from(await clothingImage.arrayBuffer());
     const bodyBuffer = Buffer.from(await bodyImage.arrayBuffer());
 
-    const clothingBase64 = clothingBuffer.toString("base64");
-    const bodyBase64 = bodyBuffer.toString("base64");
-
-    // Gerar imagem
-    const result = await generateClothingImage({
-      clothingImageBase64: clothingBase64,
+    const result = await generateRecommendation({
+      clothingImageBase64: clothingBuffer.toString("base64"),
       clothingImageMimeType: clothingImage.type || "image/jpeg",
-      bodyImageBase64: bodyBase64,
+      bodyImageBase64: bodyBuffer.toString("base64"),
       bodyImageMimeType: bodyImage.type || "image/jpeg",
-      measurements,
+      personMeasurements,
+      clothingMeasurements,
       prompt: prompt || undefined,
       apiKey,
       aspectRatio,
       resolution,
     });
 
-    // Retornar imagem diretamente
-    return new NextResponse(new Uint8Array(result.imageBuffer), {
-      headers: {
-        "Content-Type": result.mimeType || "image/png",
-        "Cache-Control": "no-store",
-        "X-Image-Width": String(result.width),
-        "X-Image-Height": String(result.height),
-      },
+    // Aplicar crop nas duas imagens
+    const recommendedCropped = await applyCrop(
+      Buffer.from(result.recommendedImageBase64, "base64"),
+      aspectRatio
+    );
+    const looseCropped = await applyCrop(
+      Buffer.from(result.looseImageBase64, "base64"),
+      aspectRatio
+    );
+
+    return NextResponse.json({
+      recommendation: result.text,
+      recommendedSize: result.recommendedSize,
+      looseSize: result.recommendedSize, // será calculado no frontend
+      recommendedImage: recommendedCropped.toString("base64"),
+      looseImage: looseCropped.toString("base64"),
+      mimeType: result.recommendedMimeType || "image/png",
     });
   } catch (error) {
-    console.error("Erro ao gerar imagem:", error);
+    console.error("Erro:", error);
     const message =
       error instanceof Error ? error.message : "Erro desconhecido";
     return NextResponse.json({ error: message }, { status: 500 });
