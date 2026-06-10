@@ -9,7 +9,6 @@ export async function POST(request: NextRequest) {
 
     const clothingImage = formData.get("clothingImage") as File | null;
     const bodyImage = formData.get("bodyImage") as File | null;
-    const apiKey = formData.get("apiKey") as string | null;
     const prompt = formData.get("prompt") as string | null;
     const aspectRatio = (formData.get("aspectRatio") as string) || "3:4";
     const resolution = (formData.get("resolution") as string) || "1K";
@@ -32,10 +31,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: "API Key do Gemini é obrigatória" },
-        { status: 400 }
+        { error: "API Key do Gemini não configurada no servidor" },
+        { status: 500 }
       );
     }
 

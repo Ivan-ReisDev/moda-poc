@@ -41,7 +41,6 @@ export default function Home() {
     hips: "",
   });
   const [prompt, setPrompt] = useState("");
-  const [apiKey, setApiKey] = useState("");
   const [aspectRatio, setAspectRatio] = useState("3:4");
   const [resolution, setResolution] = useState("1K");
   const [resultImage, setResultImage] = useState<string | null>(null);
@@ -73,8 +72,8 @@ export default function Home() {
   };
 
   const handleSubmit = async () => {
-    if (!clothingImage || !bodyImage || !apiKey) {
-      setError("Preencha todos os campos obrigatórios (imagens e API Key)");
+    if (!clothingImage || !bodyImage) {
+      setError("Envie a imagem da roupa e a foto do corpo");
       return;
     }
 
@@ -86,12 +85,10 @@ export default function Home() {
       const formData = new FormData();
       formData.append("clothingImage", clothingImage);
       formData.append("bodyImage", bodyImage);
-      formData.append("apiKey", apiKey);
       formData.append("prompt", prompt);
       formData.append("aspectRatio", aspectRatio);
       formData.append("resolution", resolution);
 
-      // Adicionar medidas
       Object.entries(measurements).forEach(([key, value]) => {
         if (value) formData.append(key, value);
       });
@@ -110,7 +107,6 @@ export default function Home() {
       const imageUrl = URL.createObjectURL(blob);
       setResultImage(imageUrl);
 
-      // Scroll para o resultado no mobile
       setTimeout(() => {
         resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 100);
@@ -128,6 +124,8 @@ export default function Home() {
     a.download = `moda-resultado-${Date.now()}.png`;
     a.click();
   };
+
+  const canGenerate = clothingImage && bodyImage && !loading;
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 text-white">
@@ -154,21 +152,7 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
           {/* Coluna Esquerda — Inputs */}
-          <div className="space-y-6">
-            {/* API Key */}
-            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">
-                🔑 API Key
-              </h2>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Cole sua Gemini API Key aqui"
-                className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-3 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 transition-all"
-              />
-            </section>
-
+          <div className="space-y-5">
             {/* Upload de Imagens */}
             <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
               <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">
@@ -341,19 +325,16 @@ export default function Home() {
             {/* Botão Gerar */}
             <button
               onClick={handleSubmit}
-              disabled={loading || !clothingImage || !bodyImage || !apiKey}
+              disabled={!canGenerate}
               className={`w-full py-4 rounded-xl font-semibold text-sm transition-all ${
-                loading || !clothingImage || !bodyImage || !apiKey
+                !canGenerate
                   ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
                   : "bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40"
               }`}
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <svg
-                    className="animate-spin h-5 w-5"
-                    viewBox="0 0 24 24"
-                  >
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                     <circle
                       className="opacity-25"
                       cx="12"
@@ -409,7 +390,7 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-zinc-800 flex flex-col items-center justify-center gap-3 text-zinc-600">
-                  <span className="text-5xl">🖼️</span>
+                  <span className="text-4xl sm:text-5xl">🖼️</span>
                   <p className="text-sm text-center">
                     A imagem gerada aparecerá aqui
                   </p>
