@@ -1,7 +1,32 @@
 "use client";
 
 import { useState, useRef, ChangeEvent } from "react";
-import { PRESET_MEASUREMENTS, type ClothingMeasurements, type ClothingSize } from "@/lib/types";
+import {
+  PRESET_MEASUREMENTS,
+  type ClothingMeasurements,
+  type ClothingSize,
+} from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface PersonMeasurements {
   height: string;
@@ -24,30 +49,28 @@ const RESOLUTIONS = [
   { value: "2K", label: "2K (Alta)" },
 ];
 
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export default function Home() {
-  // Imagens
   const [clothingImage, setClothingImage] = useState<File | null>(null);
   const [clothingPreview, setClothingPreview] = useState<string | null>(null);
   const [bodyImage, setBodyImage] = useState<File | null>(null);
   const [bodyPreview, setBodyPreview] = useState<string | null>(null);
 
-  // Medidas da pessoa
-  const [personMeasurements, setPersonMeasurements] = useState<PersonMeasurements>({
-    ...PRESET_MEASUREMENTS.person,
-  });
+  const [personMeasurements, setPersonMeasurements] =
+    useState<PersonMeasurements>({ ...PRESET_MEASUREMENTS.person });
 
-  // Medidas da roupa
   const [clothingSize, setClothingSize] = useState<ClothingSize>("M");
   const [clothingMeasurements, setClothingMeasurements] =
     useState<ClothingMeasurements>(PRESET_MEASUREMENTS.clothing.M);
 
-  // Config
   const [prompt, setPrompt] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [aspectRatio, setAspectRatio] = useState("3:4");
   const [resolution, setResolution] = useState("1K");
 
-  // Resultado
   const [recommendation, setRecommendation] = useState<string | null>(null);
   const [recommendedSize, setRecommendedSize] = useState<string | null>(null);
   const [recommendedImage, setRecommendedImage] = useState<string | null>(null);
@@ -60,7 +83,6 @@ export default function Home() {
   const bodyInputRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
-  // Handlers
   const handleClothingUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -77,7 +99,10 @@ export default function Home() {
     }
   };
 
-  const handlePersonMeasurement = (field: keyof PersonMeasurements, value: string) => {
+  const handlePersonMeasurement = (
+    field: keyof PersonMeasurements,
+    value: string
+  ) => {
     setPersonMeasurements((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -117,12 +142,10 @@ export default function Home() {
       formData.append("aspectRatio", aspectRatio);
       formData.append("resolution", resolution);
 
-      // Medidas da pessoa
       Object.entries(personMeasurements).forEach(([key, value]) => {
         if (value) formData.append(`person${capitalize(key)}`, value);
       });
 
-      // Medidas da roupa
       formData.append("clothingSize", clothingSize);
       Object.entries(clothingMeasurements).forEach(([key, value]) => {
         if (value) formData.append(`clothing${capitalize(key)}`, value);
@@ -144,11 +167,16 @@ export default function Home() {
 
       setRecommendation(data.recommendation);
       setRecommendedSize(data.recommendedSize);
-      setRecommendedImage(`data:${data.mimeType};base64,${data.recommendedImage}`);
+      setRecommendedImage(
+        `data:${data.mimeType};base64,${data.recommendedImage}`
+      );
       setLooseImage(`data:${data.mimeType};base64,${data.looseImage}`);
 
       setTimeout(() => {
-        resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        resultRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       }, 100);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao gerar");
@@ -167,24 +195,24 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 text-white">
+    <main className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-10">
+      <header className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-base sm:text-lg font-bold">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-provei-gradient flex items-center justify-center text-base sm:text-lg font-bold text-white">
               M
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-bold">Moda POC</h1>
-              <p className="text-[10px] sm:text-xs text-zinc-500">
+              <p className="text-[10px] sm:text-xs text-muted-foreground">
                 Recomendação + Try-on com Gemini
               </p>
             </div>
           </div>
-          <span className="px-3 py-1 rounded-full bg-violet-500/10 text-violet-400 text-xs font-medium border border-violet-500/20">
+          <Badge variant="secondary" className="text-xs">
             POC
-          </span>
+          </Badge>
         </div>
       </header>
 
@@ -193,347 +221,399 @@ export default function Home() {
           {/* ── Coluna Esquerda: Inputs ── */}
           <div className="space-y-5">
             {/* API Key */}
-            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                🔑 API Key
-              </h2>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Cole sua Gemini API Key"
-                className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-3 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 transition-all"
-              />
-            </section>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">API Key</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Cole sua Gemini API Key"
+                />
+              </CardContent>
+            </Card>
 
             {/* Upload de Imagens */}
-            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                📸 Imagens
-              </h2>
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                <div>
-                  <label className="text-xs text-zinc-500 mb-2 block">
-                    Imagem da Roupa *
-                  </label>
-                  <input
-                    ref={clothingInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleClothingUpload}
-                    className="hidden"
-                  />
-                  <button
-                    onClick={() => clothingInputRef.current?.click()}
-                    className={`w-full aspect-square rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-2 ${
-                      clothingPreview
-                        ? "border-violet-500/50 bg-violet-500/5"
-                        : "border-zinc-700 hover:border-zinc-600 bg-zinc-800/30"
-                    }`}
-                  >
-                    {clothingPreview ? (
-                      <img
-                        src={clothingPreview}
-                        alt="Roupa"
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                    ) : (
-                      <>
-                        <span className="text-2xl sm:text-3xl">👗</span>
-                        <span className="text-[10px] sm:text-xs text-zinc-500">
-                          Clique para enviar
-                        </span>
-                      </>
-                    )}
-                  </button>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Imagens</CardTitle>
+                <CardDescription>
+                  Envie a foto da roupa e a foto do corpo
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <Label className="text-xs mb-2 block">
+                      Imagem da Roupa *
+                    </Label>
+                    <input
+                      ref={clothingInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleClothingUpload}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => clothingInputRef.current?.click()}
+                      className={cn(
+                        "w-full aspect-square rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-2 cursor-pointer",
+                        clothingPreview
+                          ? "border-primary/50 bg-primary/5"
+                          : "border-border hover:border-muted-foreground/30 bg-muted/20"
+                      )}
+                    >
+                      {clothingPreview ? (
+                        <img
+                          src={clothingPreview}
+                          alt="Roupa"
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                      ) : (
+                        <>
+                          <span className="text-2xl sm:text-3xl">👗</span>
+                          <span className="text-[10px] sm:text-xs text-muted-foreground">
+                            Clique para enviar
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-2 block">
+                      Foto do Corpo *
+                    </Label>
+                    <input
+                      ref={bodyInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleBodyUpload}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => bodyInputRef.current?.click()}
+                      className={cn(
+                        "w-full aspect-square rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-2 cursor-pointer",
+                        bodyPreview
+                          ? "border-primary/50 bg-primary/5"
+                          : "border-border hover:border-muted-foreground/30 bg-muted/20"
+                      )}
+                    >
+                      {bodyPreview ? (
+                        <img
+                          src={bodyPreview}
+                          alt="Corpo"
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                      ) : (
+                        <>
+                          <span className="text-2xl sm:text-3xl">🧍</span>
+                          <span className="text-[10px] sm:text-xs text-muted-foreground">
+                            Clique para enviar
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs text-zinc-500 mb-2 block">
-                    Foto do Corpo *
-                  </label>
-                  <input
-                    ref={bodyInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleBodyUpload}
-                    className="hidden"
-                  />
-                  <button
-                    onClick={() => bodyInputRef.current?.click()}
-                    className={`w-full aspect-square rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-2 ${
-                      bodyPreview
-                        ? "border-fuchsia-500/50 bg-fuchsia-500/5"
-                        : "border-zinc-700 hover:border-zinc-600 bg-zinc-800/30"
-                    }`}
-                  >
-                    {bodyPreview ? (
-                      <img
-                        src={bodyPreview}
-                        alt="Corpo"
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                    ) : (
-                      <>
-                        <span className="text-2xl sm:text-3xl">🧍</span>
-                        <span className="text-[10px] sm:text-xs text-zinc-500">
-                          Clique para enviar
-                        </span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </section>
+              </CardContent>
+            </Card>
 
             {/* Medidas da Pessoa */}
-            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                🧍 Medidas da Pessoa
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {(
-                  [
-                    { key: "height", label: "Altura", ph: "1,70m" },
-                    { key: "weight", label: "Peso", ph: "65kg" },
-                    { key: "bust", label: "Busto", ph: "92cm" },
-                    { key: "waist", label: "Cintura", ph: "70cm" },
-                    { key: "hips", label: "Quadril", ph: "98cm" },
-                  ] as const
-                ).map(({ key, label, ph }) => (
-                  <div key={key}>
-                    <label className="text-xs text-zinc-500 mb-1 block">{label}</label>
-                    <input
-                      type="text"
-                      value={personMeasurements[key]}
-                      onChange={(e) => handlePersonMeasurement(key, e.target.value)}
-                      placeholder={ph}
-                      className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-3 py-2 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 transition-all"
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Medidas da Pessoa</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {(
+                    [
+                      { key: "height", label: "Altura", ph: "1,70m" },
+                      { key: "weight", label: "Peso", ph: "65kg" },
+                      { key: "bust", label: "Busto", ph: "92cm" },
+                      { key: "waist", label: "Cintura", ph: "70cm" },
+                      { key: "hips", label: "Quadril", ph: "98cm" },
+                    ] as const
+                  ).map(({ key, label, ph }) => (
+                    <div key={key}>
+                      <Label className="text-xs mb-1 block">{label}</Label>
+                      <Input
+                        type="text"
+                        value={personMeasurements[key]}
+                        onChange={(e) =>
+                          handlePersonMeasurement(key, e.target.value)
+                        }
+                        placeholder={ph}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Medidas da Roupa */}
-            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                👕 Medidas da Roupa
-              </h2>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Medidas da Roupa</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  {(["M", "G"] as ClothingSize[]).map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => handleClothingSizeChange(size)}
+                      className={cn(
+                        "flex-1 py-2.5 rounded-xl text-sm font-bold transition-all",
+                        clothingSize === size
+                          ? "bg-provei-gradient text-white shadow-lg shadow-primary/25"
+                          : "bg-muted text-muted-foreground border border-border hover:border-muted-foreground/30"
+                      )}
+                    >
+                      Tamanho {size}
+                    </button>
+                  ))}
+                </div>
 
-              {/* Seletor de tamanho */}
-              <div className="flex gap-2 mb-4">
-                {(["M", "G"] as ClothingSize[]).map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => handleClothingSizeChange(size)}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                      clothingSize === size
-                        ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/25"
-                        : "bg-zinc-800/50 text-zinc-400 border border-zinc-700 hover:border-zinc-600"
-                    }`}
-                  >
-                    Tamanho {size}
-                  </button>
-                ))}
-              </div>
+                <div className="h-px bg-border my-4" />
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {(
-                  [
-                    { key: "bust", label: "Busto" },
-                    { key: "waist", label: "Cintura" },
-                    { key: "hips", label: "Quadril" },
-                    { key: "length", label: "Comprimento" },
-                    { key: "sleeve", label: "Manga" },
-                    { key: "shoulder", label: "Ombro" },
-                  ] as const
-                ).map(({ key, label }) => (
-                  <div key={key}>
-                    <label className="text-xs text-zinc-500 mb-1 block">{label}</label>
-                    <input
-                      type="text"
-                      value={clothingMeasurements[key] || ""}
-                      onChange={(e) => handleClothingMeasurement(key, e.target.value)}
-                      placeholder="cm"
-                      className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-3 py-2 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 transition-all"
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {(
+                    [
+                      { key: "bust", label: "Busto" },
+                      { key: "waist", label: "Cintura" },
+                      { key: "hips", label: "Quadril" },
+                      { key: "length", label: "Comprimento" },
+                      { key: "sleeve", label: "Manga" },
+                      { key: "shoulder", label: "Ombro" },
+                    ] as const
+                  ).map(({ key, label }) => (
+                    <div key={key}>
+                      <Label className="text-xs mb-1 block">{label}</Label>
+                      <Input
+                        type="text"
+                        value={clothingMeasurements[key] || ""}
+                        onChange={(e) =>
+                          handleClothingMeasurement(key, e.target.value)
+                        }
+                        placeholder="cm"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Configurações */}
-            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                ⚙️ Configurações
-              </h2>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-zinc-500 mb-1 block">Aspect Ratio</label>
-                  <select
-                    value={aspectRatio}
-                    onChange={(e) => setAspectRatio(e.target.value)}
-                    className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500 transition-all"
-                  >
-                    {ASPECT_RATIOS.map((ar) => (
-                      <option key={ar.value} value={ar.value}>{ar.label}</option>
-                    ))}
-                  </select>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Configurações</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs mb-1 block">Aspect Ratio</Label>
+                    <Select value={aspectRatio} onValueChange={setAspectRatio}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ASPECT_RATIOS.map((ar) => (
+                          <SelectItem key={ar.value} value={ar.value}>
+                            {ar.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-1 block">Resolução</Label>
+                    <Select value={resolution} onValueChange={setResolution}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RESOLUTIONS.map((res) => (
+                          <SelectItem key={res.value} value={res.value}>
+                            {res.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs text-zinc-500 mb-1 block">Resolução</label>
-                  <select
-                    value={resolution}
-                    onChange={(e) => setResolution(e.target.value)}
-                    className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500 transition-all"
-                  >
-                    {RESOLUTIONS.map((res) => (
-                      <option key={res.value} value={res.value}>{res.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </section>
+              </CardContent>
+            </Card>
 
             {/* Prompt */}
-            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                ✏️ Prompt (opcional)
-              </h2>
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Descreva como quer que a roupa apareça..."
-                rows={2}
-                className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-3 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 transition-all resize-none"
-              />
-            </section>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Prompt (opcional)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Descreva como quer que a roupa apareça..."
+                  rows={2}
+                />
+              </CardContent>
+            </Card>
 
             {/* Botão */}
-            <button
+            <Button
               onClick={handleSubmit}
               disabled={loading || !clothingImage || !bodyImage || !apiKey}
-              className={`w-full py-4 rounded-xl font-semibold text-sm transition-all ${
-                loading || !clothingImage || !bodyImage || !apiKey
-                  ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
-                  : "bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40"
-              }`}
+              className="w-full py-6 text-sm font-semibold bg-provei-gradient hover:opacity-90 transition-opacity shadow-lg shadow-primary/25"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
                   </svg>
                   {loadingStep || "Processando..."}
                 </span>
               ) : (
                 "✨ Analisar e Gerar"
               )}
-            </button>
+            </Button>
 
             {error && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm">
-                ❌ {error}
+              <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 text-destructive text-sm">
+                {error}
               </div>
             )}
           </div>
 
           {/* ── Coluna Direita: Resultado ── */}
-          <div ref={resultRef} className="lg:sticky lg:top-24 lg:self-start scroll-mt-20 space-y-5">
+          <div
+            ref={resultRef}
+            className="lg:sticky lg:top-24 lg:self-start scroll-mt-20 space-y-5"
+          >
             {/* Recomendação */}
-            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                💡 Recomendação
-              </h2>
-              {recommendation ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 rounded-lg bg-violet-500/20 text-violet-300 text-sm font-bold border border-violet-500/30">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Recomendação</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {recommendation ? (
+                  <div className="space-y-3">
+                    <Badge
+                      variant="secondary"
+                      className="bg-primary/20 text-primary border-primary/30 font-bold"
+                    >
                       Tamanho {recommendedSize}
-                    </span>
+                    </Badge>
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                      {recommendation}
+                    </p>
                   </div>
-                  <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">
-                    {recommendation}
-                  </p>
-                </div>
-              ) : (
-                <div className="text-center py-6 text-zinc-600">
-                  <span className="text-3xl block mb-2">💡</span>
-                  <p className="text-sm">A recomendação aparecerá aqui</p>
-                </div>
-              )}
-            </section>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <span className="text-3xl block mb-2">💡</span>
+                    <p className="text-sm">A recomendação aparecerá aqui</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Foto: Tamanho Recomendado */}
-            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
-                  ✅ Tamanho Recomendado ({recommendedSize || "—"})
-                </h2>
-                {recommendedImage && (
-                  <button
-                    onClick={() => handleDownload(recommendedImage, `recomendado-${recommendedSize}.png`)}
-                    className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
-                  >
-                    📥 Baixar
-                  </button>
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm">
+                    Tamanho Recomendado ({recommendedSize || "—"})
+                  </CardTitle>
+                  {recommendedImage && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs text-primary hover:text-primary"
+                      onClick={() =>
+                        handleDownload(
+                          recommendedImage,
+                          `recomendado-${recommendedSize}.png`
+                        )
+                      }
+                    >
+                      Baixar
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {recommendedImage ? (
+                  <div className="rounded-xl overflow-hidden bg-muted/30 border border-border">
+                    <img
+                      src={recommendedImage}
+                      alt="Tamanho recomendado"
+                      className="w-full h-auto"
+                    />
+                  </div>
+                ) : (
+                  <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <span className="text-4xl">🖼️</span>
+                    <p className="text-xs">Foto no tamanho ideal</p>
+                  </div>
                 )}
-              </div>
-              {recommendedImage ? (
-                <div className="rounded-xl overflow-hidden bg-zinc-800/50 border border-zinc-700">
-                  <img src={recommendedImage} alt="Tamanho recomendado" className="w-full h-auto" />
-                </div>
-              ) : (
-                <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-zinc-800 flex flex-col items-center justify-center gap-2 text-zinc-600">
-                  <span className="text-4xl">🖼️</span>
-                  <p className="text-xs">Foto no tamanho ideal</p>
-                </div>
-              )}
-            </section>
+              </CardContent>
+            </Card>
 
             {/* Foto: Tamanho Folgado */}
-            <section className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
-                  🔄 Tamanho Mais Folgado
-                </h2>
-                {looseImage && (
-                  <button
-                    onClick={() => handleDownload(looseImage, "folgado.png")}
-                    className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
-                  >
-                    📥 Baixar
-                  </button>
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm">
+                    Tamanho Mais Folgado
+                  </CardTitle>
+                  {looseImage && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs text-primary hover:text-primary"
+                      onClick={() =>
+                        handleDownload(looseImage, `folgado-${recommendedSize}.png`)
+                      }
+                    >
+                      Baixar
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {looseImage ? (
+                  <div className="rounded-xl overflow-hidden bg-muted/30 border border-border">
+                    <img
+                      src={looseImage}
+                      alt="Tamanho folgado"
+                      className="w-full h-auto"
+                    />
+                  </div>
+                ) : (
+                  <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <span className="text-4xl">🔄</span>
+                    <p className="text-xs">Foto no tamanho mais solto</p>
+                  </div>
                 )}
-              </div>
-              {looseImage ? (
-                <div className="rounded-xl overflow-hidden bg-zinc-800/50 border border-zinc-700">
-                  <img src={looseImage} alt="Tamanho folgado" className="w-full h-auto" />
-                </div>
-              ) : (
-                <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-zinc-800 flex flex-col items-center justify-center gap-2 text-zinc-600">
-                  <span className="text-4xl">🖼️</span>
-                  <p className="text-xs">Foto num tamanho mais folgado</p>
-                </div>
-              )}
-            </section>
-
-            {/* Info */}
-            <div className="p-3 rounded-xl bg-zinc-900/30 border border-zinc-800/50">
-              <p className="text-[10px] sm:text-xs text-zinc-600 leading-relaxed">
-                <strong className="text-zinc-500">Modelo:</strong> gemini-2.5-flash-image (Nano Banana) •{" "}
-                <strong className="text-zinc-500">Crop:</strong> centralizado •{" "}
-                <strong className="text-zinc-500">Idioma:</strong> pt-BR
-              </p>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
     </main>
   );
-}
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }
